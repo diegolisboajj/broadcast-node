@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Live TV Channel</title>
+</head>
+<body>
+  <h1>Bem vindo a TV SóACheiOfertas!</h1>
+  <video id="video" width="640" height="480" controls></video>
+  <button id="startBroadcast">Start Broadcast</button>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const video = document.getElementById('video');
+    const startBroadcastButton = document.getElementById('startBroadcast');
+    const socket = io();
+
+    let isBroadcasting = false;
+    let localStream;
+    let videoQueue = [];
+    let currentVideoIndex = 0;
+    function loadVideoFromQueue() {
+        if (videoQueue.length > 0) {
+            const videoURL = videoQueue[currentVideoIndex];
+            video.src = './videos/' + videoURL;
+            video.play();
+        }
+    }
+    socket.on('videoQueue', (data) => {
+        console.log(data);
+        videoQueue = data.videoQueue;
+        currentVideoIndex = data.currentVideoIndex;
+        loadVideoFromQueue();
+    });
+    video.onended = () => {
+        currentVideoIndex = (currentVideoIndex + 1) % videoQueue.length;
+        loadVideoFromQueue();
+    };
+    startBroadcastButton.onclick = async () => {
+      if (!isBroadcasting) {
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          video.srcObject = localStream;
+          video.play();
+          startBroadcastButton.textContent = 'Stop Broadcast';
+          isBroadcasting = true;
+        } catch (error) {
+          console.error('Error starting broadcast:', error);
+        }
+      } else {
+        if (localStream) {
+          localStream.getTracks().forEach(track => track.stop());
+          localStream = null;
+        }
+        video.srcObject = null;
+        video.pause();
+        startBroadcastButton.textContent = 'Start Broadcast';
+        isBroadcasting = false;
+      }
+    };
+  </script>
+</body>
+</html>
